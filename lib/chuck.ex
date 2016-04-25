@@ -2,7 +2,7 @@ defmodule Chuck do
   defmodule ReviewBot do
     use Marvin.Bot
 
-    match {:direct, ~r/up for review/}
+    match {:direct, ~r/review/}
 
     def handle_message(message, slack) do
       review_candidates = Enum.filter(channel_members(message, slack), fn (id) ->
