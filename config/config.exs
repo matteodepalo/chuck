@@ -30,3 +30,8 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 
 config :marvin, slack_token: System.get_env("SLACK_TOKEN"), bots: [Chuck.ReviewBot]
+
+config :exredis,
+  url: System.get_env("REDIS_URL"),
+  reconnect: :no_reconnect,
+  max_queue: :infinity

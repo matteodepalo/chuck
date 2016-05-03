@@ -29,7 +29,8 @@ defmodule Chuck.Mixfile do
   defp deps do
     [
       {:marvin, "~> 0.3.0"},
-      {:websocket_client, git: "https://github.com/jeremyong/websocket_client"}
+      {:websocket_client, git: "https://github.com/jeremyong/websocket_client"},
+      {:exredis, "~> 0.2.4"}
     ]
   end
 end
