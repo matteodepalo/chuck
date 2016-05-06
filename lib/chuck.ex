@@ -43,7 +43,7 @@ defmodule Chuck do
     def possible_reviewers(reviewers, message, slack) do
       channel_reviewers = channel_members(message, slack)
 
-      review_candidates = reviewers
+      reviewers
       |> Enum.filter(fn ({ id, _count }) ->
         Enum.member?(channel_reviewers, id) &&
         Map.get(slack.users[id], :presence) == "active" &&
