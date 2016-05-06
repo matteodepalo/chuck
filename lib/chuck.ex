@@ -11,14 +11,7 @@ defmodule Chuck do
       review_candidates = possible_reviewers(all_reviewers, message, slack)
 
       if Enum.count(Map.keys(review_candidates)) > 0 do
-        lowest_count = Enum.min(Map.values(review_candidates))
-
-        reviewer = review_candidates
-        |> Enum.filter(fn ({ _id, count }) -> count == lowest_count end)
-        |> Enum.into(%{})
-        |> Map.keys
-        |> Enum.random
-
+        reviewer = pick_at_random(review_candidates)
         updated_reviewers = Dict.put(all_reviewers, reviewer, all_reviewers[reviewer] + 1)
         Exredis.Api.set(redis_client, "reviewers", Poison.encode!(updated_reviewers))
         send_message("<@#{reviewer}> kindly review that PR.", message.channel, slack)
@@ -40,7 +33,7 @@ defmodule Chuck do
       end
     end
 
-    def possible_reviewers(reviewers, message, slack) do
+    defp possible_reviewers(reviewers, message, slack) do
       channel_reviewers = channel_members(message, slack)
 
       reviewers
@@ -52,6 +45,16 @@ defmodule Chuck do
         id != message.user
       end)
       |> Enum.into(%{})
+    end
+
+    defp pick_at_random(reviewers) do
+      lowest_count = Enum.min(Map.values(reviewers))
+
+      reviewers
+      |> Enum.filter(fn ({ _id, count }) -> count == lowest_count end)
+      |> Enum.into(%{})
+      |> Map.keys
+      |> Enum.random
     end
 
     defp channel_members(message, slack) do
