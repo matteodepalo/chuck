@@ -7,10 +7,16 @@ defmodule Chuck do
     def handle_message(message, slack) do
       {:ok, redis_client} = Exredis.start_link
 
-      stored_reviewers = reviewers(message, slack, redis_client)
-      review_candidates = stored_reviewers
+      all_reviewers = reviewers(slack, redis_client)
+      channel_reviewers = channel_members(message, slack)
+
+      review_candidates = all_reviewers
       |> Enum.filter(fn ({ id, _count }) ->
-        !Map.get(slack.users[id], :is_bot, false) && Map.get(slack.users[id], :presence, "active") && id != message.user
+        Enum.member?(channel_reviewers, id) &&
+        Map.get(slack.users[id], :presence) == "active" &&
+        !Map.get(slack.users[id], :is_bot, false) &&
+        Map.get(slack.users[id], :name) != "slackbot" &&
+        id != message.user
       end)
       |> Enum.into(%{})
 
@@ -23,7 +29,7 @@ defmodule Chuck do
         |> Map.keys
         |> Enum.random
 
-        updated_reviewers = Dict.put(stored_reviewers, reviewer, stored_reviewers[reviewer] + 1)
+        updated_reviewers = Dict.put(all_reviewers, reviewer, all_reviewers[reviewer] + 1)
         Exredis.Api.set(redis_client, "reviewers", Poison.encode!(updated_reviewers))
         send_message("<@#{reviewer}> kindly review that PR.", message.channel, slack)
       else
@@ -33,10 +39,10 @@ defmodule Chuck do
       Exredis.stop(redis_client)
     end
 
-    defp reviewers(message, slack, redis_client) do
+    defp reviewers(slack, redis_client) do
       case Exredis.Api.get(redis_client, "reviewers") do
         :undefined ->
-          reviewers = channel_members(message, slack)
+          reviewers = Map.keys(slack.users)
           |> Enum.reduce(%{}, fn (reviewer, acc) -> Dict.put(acc, reviewer, 0) end)
           Exredis.Api.set(redis_client, "reviewers", Poison.encode!(reviewers))
           reviewers
