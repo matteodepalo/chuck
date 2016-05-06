@@ -8,17 +8,7 @@ defmodule Chuck do
       {:ok, redis_client} = Exredis.start_link
 
       all_reviewers = reviewers(slack, redis_client)
-      channel_reviewers = channel_members(message, slack)
-
-      review_candidates = all_reviewers
-      |> Enum.filter(fn ({ id, _count }) ->
-        Enum.member?(channel_reviewers, id) &&
-        Map.get(slack.users[id], :presence) == "active" &&
-        !Map.get(slack.users[id], :is_bot, false) &&
-        Map.get(slack.users[id], :name) != "slackbot" &&
-        id != message.user
-      end)
-      |> Enum.into(%{})
+      review_candidates = possible_reviewers(all_reviewers, message, slack)
 
       if Enum.count(Map.keys(review_candidates)) > 0 do
         lowest_count = Enum.min(Map.values(review_candidates))
@@ -48,6 +38,20 @@ defmodule Chuck do
           reviewers
         reviewers -> Poison.decode!(reviewers)
       end
+    end
+
+    def possible_reviewers(reviewers, message, slack) do
+      channel_reviewers = channel_members(message, slack)
+
+      review_candidates = reviewers
+      |> Enum.filter(fn ({ id, _count }) ->
+        Enum.member?(channel_reviewers, id) &&
+        Map.get(slack.users[id], :presence) == "active" &&
+        !Map.get(slack.users[id], :is_bot, false) &&
+        Map.get(slack.users[id], :name) != "slackbot" &&
+        id != message.user
+      end)
+      |> Enum.into(%{})
     end
 
     defp channel_members(message, slack) do
