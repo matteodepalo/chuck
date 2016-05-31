@@ -7,13 +7,12 @@ defmodule Chuck do
     def handle_message(message, slack) do
       {:ok, redis_client} = Exredis.start_link
 
-      all_reviewers = reviewers(slack, redis_client)
-      review_candidates = possible_reviewers(all_reviewers, message, slack)
+      reviewer_to_exclude = last_reviewer(redis_client)
+      review_candidates = possible_reviewers(reviewer_to_exclude, message, slack)
 
-      if Enum.count(Map.keys(review_candidates)) > 0 do
+      if Enum.count(review_candidates) > 0 do
         reviewer = pick_at_random(review_candidates)
-        updated_reviewers = Dict.put(all_reviewers, reviewer, all_reviewers[reviewer] + 1)
-        Exredis.Api.set(redis_client, "reviewers", Poison.encode!(updated_reviewers))
+        Exredis.Api.set(redis_client, "last_reviewer", reviewer)
         send_message("<@#{reviewer}> kindly review that PR.", message.channel, slack)
       else
         send_message("No reviewers available.", message.channel, slack)
@@ -22,39 +21,27 @@ defmodule Chuck do
       Exredis.stop(redis_client)
     end
 
-    defp reviewers(slack, redis_client) do
-      case Exredis.Api.get(redis_client, "reviewers") do
-        :undefined ->
-          reviewers = Map.keys(slack.users)
-          |> Enum.reduce(%{}, fn (reviewer, acc) -> Dict.put(acc, reviewer, 0) end)
-          Exredis.Api.set(redis_client, "reviewers", Poison.encode!(reviewers))
-          reviewers
-        reviewers -> Poison.decode!(reviewers)
+    defp last_reviewer(redis_client) do
+      case Exredis.Api.get(redis_client, "last_reviewer") do
+        :undefined -> nil
+        reviewer -> reviewer
       end
     end
 
-    defp possible_reviewers(reviewers, message, slack) do
-      channel_reviewers = channel_members(message, slack)
-
-      reviewers
-      |> Enum.filter(fn ({ id, _count }) ->
-        Enum.member?(channel_reviewers, id) &&
+    defp possible_reviewers(reviewer_to_exclude, message, slack) do
+      channel_members(message, slack)
+      |> Enum.filter(fn (id) ->
         Map.get(slack.users[id], :presence) == "active" &&
         !Map.get(slack.users[id], :is_bot, false) &&
         Map.get(slack.users[id], :name) != "slackbot" &&
+        id != reviewer_to_exclude &&
         id != message.user
       end)
       |> Enum.into(%{})
     end
 
     defp pick_at_random(reviewers) do
-      lowest_count = Enum.min(Map.values(reviewers))
-
-      reviewers
-      |> Enum.filter(fn ({ _id, count }) -> count == lowest_count end)
-      |> Enum.into(%{})
-      |> Map.keys
-      |> Enum.random
+      Enum.random(reviewers)
     end
 
     defp channel_members(message, slack) do
