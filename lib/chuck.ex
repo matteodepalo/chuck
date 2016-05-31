@@ -37,7 +37,6 @@ defmodule Chuck do
         id != reviewer_to_exclude &&
         id != message.user
       end)
-      |> Enum.into(%{})
     end
 
     defp pick_at_random(reviewers) do
