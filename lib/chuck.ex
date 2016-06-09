@@ -7,7 +7,7 @@ defmodule Chuck do
     def handle_message(message, slack) do
       {:ok, redis_client} = Exredis.start_link
 
-      reviewer_to_exclude = last_reviewer(redis_client)
+      reviewer_to_exclude = last_reviewer(redis_client, message)
       review_candidates = possible_reviewers(reviewer_to_exclude, message, slack)
 
       if Enum.count(review_candidates) > 0 do
@@ -21,8 +21,8 @@ defmodule Chuck do
       Exredis.stop(redis_client)
     end
 
-    defp last_reviewer(redis_client) do
-      case Exredis.Api.get(redis_client, "last_reviewer") do
+    defp last_reviewer(redis_client, message) do
+      case Exredis.Api.get(redis_client, "#{message.channel}_last_reviewer") do
         :undefined -> nil
         reviewer -> reviewer
       end
