@@ -12,7 +12,7 @@ defmodule Chuck do
 
       if Enum.count(review_candidates) > 0 do
         reviewer = pick_at_random(review_candidates)
-        Exredis.Api.set(redis_client, "last_reviewer", reviewer)
+        Exredis.Api.set(redis_client, "#{message.channel}_last_reviewer", reviewer)
         send_message("<@#{reviewer}> kindly review that PR.", message.channel, slack)
       else
         send_message("No reviewers available.", message.channel, slack)
